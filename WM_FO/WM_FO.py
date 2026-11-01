@@ -36,6 +36,9 @@ def escucharRespuestas(consumer):
                 respuesta=json.loads(msg.value().decode(FORMAT))
                 if respuesta.get("operador")!=ID_OPERADOR or respuesta.get("ts",0)<INICIO:
                     continue
+                #si aparece una lista de estaciones disponibles si no la pedimos o si es antigua
+                if respuesta.get("resultado")=="DISPONIBLES" and time.time()-respuesta["ts"]>TIMEOUT_RESPUESTA:
+                    continue
                 
                 print(f"\n[CENTRAL] {respuesta['ws']}: {respuesta['resultado']} - {respuesta['motivo']}")
                 with condicion:
@@ -133,7 +136,7 @@ def leerFichero(nombre):
         fichero=open(nombre)
     except OSError:
         print(f"No se puede abrir el fichero {nombre}")
-        sys.exit(1)
+        return
     
     lineas=fichero.readlines()
     fichero.close()
@@ -198,6 +201,8 @@ if len(sys.argv)==4 or len(sys.argv)==5:
         print("3. Ver estaciones disponibles")
         print("4. Salir")
         opcion = input("Opción: ")
+        if opcion == "":
+            continue 
 
         if opcion == "1":
             ws = input("ID de la estación: ")
