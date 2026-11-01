@@ -629,8 +629,7 @@ def servidorWeb(puerto):
 
 #Encargada de recibir pediciones y gestionar las conexiones con los clientes
 
-if len(sys.argv)== 5:
-    
+if len(sys.argv)==4 or len(sys.argv)==5:    
     #puerto de escucha que ofrece al ws_wm_m
     PORT= int(sys.argv[1])
     
@@ -639,7 +638,7 @@ if len(sys.argv)== 5:
     
     IP_KAFKA=sys.argv[2]
     PORT_KAFKA=int(sys.argv[3])
-    PUERTO_WEB=int(sys.argv[4])
+    PUERTO_WEB=int(sys.argv[4]) if len(sys.argv)==5 else 8080 #si no nos lo pasan, el panel web va en el 8080
     producer_web=Producer({"bootstrap.servers": f"{IP_KAFKA}:{PORT_KAFKA}"})
     
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
