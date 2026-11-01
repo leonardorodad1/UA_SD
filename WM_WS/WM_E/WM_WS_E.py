@@ -26,6 +26,11 @@ motivo_parada="PARADAMANUAL" #por que se ha parado el riego: PARADAMANUAL (tecla
 
 TOPIC_ORDENES="wm.ordenes" #central deja ordenes en este topic
 TOPIC_CAUDAL="wm.caudal"
+TOPIC_PETICIONES="wm.peticiones" #pedimos riegos desde la estacion
+TOPIC_RESPUESTAS="wm.respuestas" 
+TIEMPO_RESPUESTA=15 #segundos max esperando a que la central conteste una peticion manual
+respuesta_recibida=threading.Event() 
+ts_peticion_manual=None 
 TIEMPO_CADUCIDAD=20 # 20 segundos es lo maximo que espera 
 #una orden para ser usada, si no lo es en este tiempo 
 #se da la orden como caducada
@@ -50,6 +55,7 @@ def receive(objeto_socket):
 def leerTeclado():
     global estado
     print("Pulsa Enter para alternar OK -> KO")
+    print("Pulsa r y Enter para pedir un riego")
     print("Pulsa f y Enter para finalizar riego")
     while True:
         
@@ -68,12 +74,64 @@ def leerTeclado():
                 estado="KO"
                 pararRiego.set()# se corta si estaba regando
             print(f"Estado: {estado}")
+        elif linea=="r":
+            print("Segundos de riego: ", end="", flush=True)
+            texto=sys.stdin.readline().strip()
+            if not texto.isdigit() or int(texto)<=0:
+                print("Tiempo no valido")
+            elif regando:
+                print("Ya hay un riego en curso en esta estacion")
+            else:
+                pedirRiegoManual(int(texto))
         elif linea=="f":
             if regando:
                 print("Finalizando el riego...")
             pararRiego.set()
         else:
             print("Opción no válida")
+
+
+#desde la estacion
+def pedirRiegoManual(tiempo):
+    global ts_peticion_manual
+    peticion={"operador": ID_WS, "ws": ID_WS, "tiempo": tiempo, "ts": time.time()}
+    ts_peticion_manual=peticion["ts"]
+    respuesta_recibida.clear()
+    try:
+        producer.produce(TOPIC_PETICIONES, key=ID_WS, value=json.dumps(peticion))
+    except BufferError:
+        print("Imposible enviar la peticion a Kafka, buffer lleno")
+        return
+    if producer.flush(5)>0:
+        print("Imposible conectar con kafka")
+        return
+    print(f"Peticion de riego manual enviada a la Central ({tiempo} s)")
+    if not respuesta_recibida.wait(TIEMPO_RESPUESTA):
+        print("Imposible conectar con WM_Central")
+
+
+def escucharRespuestas(consumer_resp):
+    while True:
+        try:
+            msg=consumer_resp.poll(1.0)
+            if msg is None:
+                continue
+            if msg.error():
+                if msg.error().code() not in (KafkaError.UNKNOWN_TOPIC_OR_PART, KafkaError._PARTITION_EOF):
+                    print(f"{msg.error()}")
+                continue
+            respuesta=json.loads(msg.value().decode(FORMAT))
+            if respuesta["operador"]!=ID_WS or respuesta["ts"]!=ts_peticion_manual:
+                continue
+            if respuesta["resultado"] in ("AUTORIZADA", "DENEGADA"):
+                print(f"[CENTRAL] Riego manual {respuesta['resultado']} - {respuesta['motivo']}")
+                respuesta_recibida.set()
+        except(json.JSONDecodeError, KeyError, TypeError, ValueError):
+            continue#ignoramos mensaje no valido
+        except Exception as e:
+            print(f"Error leyendo respuestas {e}")
+            time.sleep(1)
+
 ############################
 #Caudalimetro
 ############################
@@ -256,6 +314,17 @@ if  (len(sys.argv) == 5):
     hilo_ordenes.start()
     
     print(f"Escuchando órdenes de la Central en {TOPIC_ORDENES}...")    
+
+    #para riegos desde la estacion
+    consumer_resp=Consumer({
+        "bootstrap.servers": f"{IP_K}:{PORT_K}",
+        "group.id": f"wm-engine-resp-{ID_WS}-{int(time.time())}",
+        "auto.offset.reset": "latest", #solo nos interesan las respuestas a partir de ahora
+        "enable.auto.commit": False,
+    })
+    consumer_resp.subscribe([TOPIC_RESPUESTAS])
+    hilo_respuestas=threading.Thread(target=escucharRespuestas, args=(consumer_resp,), daemon=True)
+    hilo_respuestas.start()
     
     respuesta_teclado=threading.Thread(target=leerTeclado, daemon=True)
     #si el programa principal termina lo mato con daemon=true

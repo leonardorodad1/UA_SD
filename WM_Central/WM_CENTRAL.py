@@ -366,7 +366,8 @@ def escucharPeticiones():
                 "bootstrap.servers":f"{IP_KAFKA}:{PORT_KAFKA}",
                 "group.id":"wm-central",
                 "auto.offset.reset":"earliest",
-                "enable.auto.commit": False
+                "enable.auto.commit": False,
+                "session.timeout.ms": 10000, #kafka da por caida la central en 10 seg en vez de 45
             })
             producer=Producer({"bootstrap.servers":f"{IP_KAFKA}:{PORT_KAFKA}"})
             consumer.subscribe([TOPIC_PETICIONES])
