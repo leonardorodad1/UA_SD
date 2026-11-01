@@ -25,6 +25,7 @@ MAX_MENSAJES = 50
 mensajes_panel = [] 
 ZONA_HORARIA = ZoneInfo("Europe/Madrid") 
 kafka_ok = False #true si el broker responde
+TIEMPO_CADUCIDAD_PETICION = 20 
 
 def handle_client(conn, addr):
     
@@ -295,6 +296,12 @@ def procesarPeticion(consumer, producer, msg):
         return
     if peticion.get("tipo")=="LISTAR":
         listarEstaciones(producer, peticion)
+        if producer.flush(10)==0:
+            consumer.commit(message=msg, asynchronous=False)
+        return
+    if time.time()-peticion["ts"] > TIEMPO_CADUCIDAD_PETICION:
+        registrarMensaje(f"{operador} - petición de riego en {ws} caducada, se descarta")
+        responderPeticion(producer, peticion, "DENEGADA", "peticion caducada")
         if producer.flush(10)==0:
             consumer.commit(message=msg, asynchronous=False)
         return

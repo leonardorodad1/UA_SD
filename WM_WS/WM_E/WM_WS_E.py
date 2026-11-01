@@ -108,6 +108,7 @@ def pedirRiegoManual(tiempo):
     print(f"Peticion de riego manual enviada a la Central ({tiempo} s)")
     if not respuesta_recibida.wait(TIEMPO_RESPUESTA):
         print("Imposible conectar con WM_Central")
+        ts_peticion_manual=None
 
 
 def escucharRespuestas(consumer_resp):
@@ -163,7 +164,7 @@ def enviarFinRiego(resumen,operador,ts):
     print("RESUMEN RIEGO")
     print(f"Fin de riego por {resumen['motivo']}")
     print(f"Duración: {resumen['duracion']} segundos")
-    print(f"Volumen total: {resumen['volumen']} L")
+    print(f"Volumen total: {round(resumen['volumen'],3)} L")
     
     publicar({"ws":ID_WS,"tipo":"FIN","motivo":resumen["motivo"],"duracion":resumen["duracion"],"volumen":round(resumen["volumen"],2),"operador":operador,"ts_peticion":ts})
     producer.flush(5) #esperamos a que salga y asi no perdemos el riego 
