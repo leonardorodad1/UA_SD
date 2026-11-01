@@ -34,8 +34,12 @@ def escucharRespuestas(consumer):
                     continue
                 
                 respuesta=json.loads(msg.value().decode(FORMAT))
-                if respuesta.get("operador")!=ID_OPERADOR or respuesta.get("ts",0)<INICIO:
+                if respuesta.get("operador")!=ID_OPERADOR:
                     continue
+                #de un riego de antes de abrir el FO no mostramos cada segundo, solo el resultado final
+                if respuesta.get("ts",0)<INICIO and respuesta.get("resultado")=="REGANDO":
+                    continue
+                
                 #si aparece una lista de estaciones disponibles si no la pedimos o si es antigua
                 if respuesta.get("resultado")=="DISPONIBLES" and time.time()-respuesta["ts"]>TIMEOUT_RESPUESTA:
                     continue
@@ -185,9 +189,13 @@ if len(sys.argv)==4 or len(sys.argv)==5:
     #asi sabremos cual es nuestra peticion
     consumer = Consumer({
         "bootstrap.servers": f"{IP_K}:{PORT_K}",
-        "group.id": f"wm-fo-{ID_OPERADOR}-{int(time.time())}",
-        "auto.offset.reset": "earliest",
-        "enable.auto.commit": False,
+        "group.id": f"wm-fo-{ID_OPERADOR}", #kafka recuerda por donde ibamos aunque el FO se cierre
+        "auto.offset.reset": "latest", #kafka continua por donde se quedó
+        "enable.auto.commit": True, #kafka apunta donde lee fo
+        "session.timeout.ms": 10000, 
+        #si el FO cae, y se reabre en 10 segundos, no tiene que esperar a
+        #que caduque el anterior, lee de nuevo
+        
     })
     consumer.subscribe([TOPIC_RESPUESTAS])
     hilo_respuestas=threading.Thread(target=escucharRespuestas, args=(consumer,), daemon=True)

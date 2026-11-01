@@ -288,7 +288,7 @@ if  (len(sys.argv) == 5):
         monitor.connect(ADDR)
 
     except Exception as e:
-        print("Erorr al intentar conectarse al Monitor")
+        print("Imposible conectar con el Monitor. WS AVERIADA: no se admiten riegos")
         sys.exit(1)
 
     print (f"Establecida conexión en [{ADDR}]")
@@ -336,11 +336,17 @@ if  (len(sys.argv) == 5):
         except OSError:
             msg=""
         if msg=="":
-            print("El monitor ha cerrado conexión")
+            print("El monitor ha cerrado conexión. WS AVERIADA: no se admiten riegos")
             break               
         if msg=="CONEXION":
             send(monitor,estado)
     
+    #si estaba regando, terminamos el riego de forma ordenada para que el FIN llegue a la central y al FO
+    if regando:
+        motivo_parada="MONITOR"
+        pararRiego.set()
+        while regando: #esperamos a que el hilo de riego mande el FIN
+            time.sleep(0.2)
     monitor.close()
     sys.exit(1)
     

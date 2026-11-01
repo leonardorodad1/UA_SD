@@ -351,8 +351,13 @@ def procesarCaudal(consumer, producer,msg):
                     responderPeticion(producer, peticion, "REGANDO", f"Caudal {dato['caudal']} L/min, volumen {dato['volumen']} L")
                 
         elif tipo=="FIN":
-            if dato["motivo"]!="FUGA":
+            
+            if dato["motivo"]=="MONITOR":
+                #si monitor cae la WS no puede seguir dando servicio
+                cursor.execute("UPDATE estaciones SET estado='DISCONNECTED' WHERE id_estacion=:ws", {"ws":ws})
+            elif dato["motivo"]!="FUGA":
                 cursor.execute("UPDATE estaciones SET estado='AVAILABLE' WHERE id_estacion=:ws AND estado='WATERING'", {"ws":ws})
+                
             cursor.execute("UPDATE estaciones SET caudal=0, volumen=0, operador='-' WHERE id_estacion=:ws", {"ws": ws})
             cursor.execute("UPDATE estaciones SET ultimo_fin=:fin, ultimo_operador=:op, ultimo_volumen=:v, ultimo_motivo=:m WHERE id_estacion=:ws",{"fin": time.time(), "op": operador, "v": dato["volumen"], "m": dato["motivo"], "ws": ws})
             conexion.commit()
@@ -411,7 +416,8 @@ def escucharCaudal():
                 "bootstrap.servers":f"{IP_KAFKA}:{PORT_KAFKA}",
                 "group.id":"wm-central-caudal",
                 "auto.offset.reset":"earliest",
-                "enable.auto.commit": False
+                "enable.auto.commit": False,
+                "session.timeout.ms": 10000, #kafka da por caida la central en 10 seg
             })
             producer=Producer({"bootstrap.servers":f"{IP_KAFKA}:{PORT_KAFKA}"})
             consumer.subscribe([TOPIC_CAUDAL])
