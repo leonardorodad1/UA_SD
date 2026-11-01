@@ -261,19 +261,43 @@ def responderPeticion(producer,peticion,res,motivo):
                "motivo": motivo}
     producer.produce(TOPIC_RESPUESTAS, key=peticion["operador"], value = json.dumps(respuesta))
 
+def listarEstaciones(producer, peticion):
+    conexion=sqlite3.connect(DB_PATH)
+    cursor=conexion.cursor()
+    cursor.execute("SELECT id_estacion, ubicacion FROM estaciones WHERE estado='AVAILABLE' ORDER BY id_estacion")
+    filas=cursor.fetchall()
+    conexion.close()
+    if len(filas) == 0:
+        lista="Ninguna estación disponible"
+    else:
+        lista=""
+        for fila in filas:
+            lista += f"\n   {fila[0]} - {fila[1]}"
+    peticion["ws"] = "-"
+    responderPeticion(producer, peticion, "DISPONIBLES", lista)
+    print(f"{peticion['operador']} pide la lista de estaciones: {len(filas)} disponibles")
+
 def procesarPeticion(consumer, producer, msg):
     try:
         peticion=json.loads(msg.value().decode(FORMAT))
         operador = peticion["operador"]
-        ws=peticion["ws"]
         peticion["ts"]#comprobamos que existe
-        tiempo=int(peticion["tiempo"])
+        if peticion.get("tipo")=="LISTAR":
+            ws="-"
+            tiempo=0
+        else:
+            ws=peticion["ws"]
+            tiempo=int(peticion["tiempo"])
     except (json.JSONDecodeError, KeyError, TypeError, UnicodeDecodeError, AttributeError,ValueError):
         #mensaje mal formado: lo descartamos y lo damos por leido para no atascarnos con el
         print("Formato de peticion incorrecto, se descarta")
         consumer.commit(message=msg, asynchronous=False)
         return
-    
+    if peticion.get("tipo")=="LISTAR":
+        listarEstaciones(producer, peticion)
+        if producer.flush(10)==0:
+            consumer.commit(message=msg, asynchronous=False)
+        return
     print(f"Peticion de {operador} para {ws}")
     responderPeticion(producer,peticion,"RECIBIDA","Peticion recibida, comprobando estado")
  

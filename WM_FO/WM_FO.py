@@ -14,7 +14,7 @@ TOPIC_PETICIONES="wm.peticiones"
 TOPIC_RESPUESTAS="wm.respuestas"
 ESPERA_RESPUESTA=4 # 4segundo es los maximo que espera sea exito o fracaso
 TIMEOUT_RESPUESTA = 15 #max tiempo que se espera respuesta de la central
-RESULTADOS_FINALES = {"AUTORIZADA", "DENEGADA"}
+RESULTADOS_FINALES = {"AUTORIZADA", "DENEGADA", "DISPONIBLES"}
 
 resultados = {} 
 condicion = threading.Condition()
@@ -97,6 +97,22 @@ def esperarFin(ts,tiempo):
             condicion.wait(restante)
         return True
 
+#pide a la central la lista de estaciones disponibles y espera a que conteste
+def verEstaciones():
+    peticion={"operador": ID_OPERADOR, "tipo": "LISTAR", "ts": time.time()}
+    try:
+        producer.produce(TOPIC_PETICIONES, key=ID_OPERADOR, value=json.dumps(peticion))
+    except BufferError:
+        print("Imposible enviar la peticion a Kafka, buffer lleno")
+        return
+    if producer.flush(10)>0:
+        print("Imposible conectar con kafka")
+        producer.purge()
+        producer.flush(1)
+        return
+    if esperarResultado(peticion["ts"]) is None:
+        print("Imposible conectar con WM_Central")
+
 #pide un riego y espera hasta su conclusion, denegado o riego terminado
 def solicitarEsperar(ws, tiempo):
     ts=solicitarRiego(ws,tiempo)
@@ -104,7 +120,7 @@ def solicitarEsperar(ws, tiempo):
         return
     resultado=esperarResultado(ts)
     if resultado is None:
-        print("Sin respuesta de WM_Central.")
+        print("Imposible conectar con WM_Central")
     elif resultado=="AUTORIZADA":
         if not esperarFin(ts, tiempo):
             print("El riego no ha informado de su finalizacion.")
@@ -179,7 +195,8 @@ if len(sys.argv)==4 or len(sys.argv)==5:
         
         print("1. Solicitar riego")
         print("2. Leer servicios de un fichero")
-        print("3. Salir")
+        print("3. Ver estaciones disponibles")
+        print("4. Salir")
         opcion = input("Opción: ")
 
         if opcion == "1":
@@ -202,6 +219,8 @@ if len(sys.argv)==4 or len(sys.argv)==5:
             #mirar si pongo caso de q se lea por argumento o no
             leerFichero(nombre)
         elif opcion == "3":
+            verEstaciones()
+        elif opcion == "4":
             salir = True
         else:
             print("Opción no válida")
