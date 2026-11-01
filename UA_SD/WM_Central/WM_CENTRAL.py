@@ -126,8 +126,20 @@ def handle_client(conn, addr):
             cursor=conexion.cursor()
             if estado_ws=="LEAK":
                 
+                 #miramos si estaba regando y para quien, antes de cambiar el estado
+                cursor.execute("SELECT estado, operador FROM estaciones WHERE id_estacion=:idbuscado", {"idbuscado": id_ws})
+                fila=cursor.fetchone()
                 cursor.execute("UPDATE estaciones set estado='LEAK' where id_estacion=:idbuscado",{"idbuscado": id_ws})
                 registrarMensaje(f"{id_ws} - fuga detectada, estado LEAK")
+                
+                if fila is not None and fila[0]=="WATERING":
+                    #avisamos al operador al que le estabamos regando
+                    aviso={"operador": fila[1], "ws": id_ws, "ts": time.time(), "resultado": "AVERIADA",
+                           "motivo": "la estacion ha sufrido una averia durante el riego"}
+                    producer_web.produce(TOPIC_RESPUESTAS, key=fila[1], value=json.dumps(aviso))
+                    producer_web.flush(5)
+                    registrarMensaje(f"{id_ws} - averia durante el riego de {fila[1]}, se le avisa")
+                    
             elif estado_ws=="AVAILABLE":
                 cursor.execute("UPDATE estaciones set estado='AVAILABLE' where id_estacion=:idbuscado AND estado='LEAK'",{"idbuscado": id_ws})
                 if cursor.rowcount==1:

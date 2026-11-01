@@ -7,6 +7,7 @@ import time
 import random
 import json
 from confluent_kafka import Consumer, Producer,KafkaError
+import os
 
 #ARGUMENTOS
 # IP y puerto del Broker/Bootstrap-server del gestor de colas.
@@ -34,7 +35,11 @@ ts_peticion_manual=None
 TIEMPO_CADUCIDAD=20 # 20 segundos es lo maximo que espera 
 #una orden para ser usada, si no lo es en este tiempo 
 #se da la orden como caducada
-
+FICHERO_RIEGO="riego_en_curso.json" #aqui guardamos el riego que se hace
+#Si acaba bien, borramos el archivo.
+#Si se cae, el archivo se guarda.
+#Al volver a arrancar, si encuentra el archivo, sabe que se cortó un riego: manda el FIN con lo regado (motivo AVERIA) y borra el archivo.
+#El FO recibe su FINALIZADO y el panel guarda el último riego.
 
 def send(objeto_socket,msg):
     message = msg.encode(FORMAT)
@@ -200,6 +205,11 @@ def regar(tiempo,operador,ts):
         caudal=medirCaudal()
         volumen+=caudal/60 # L/min aqui es caudal/60 segundos
         enviarCaudal(caudal,volumen,operador,ts)
+        #guardamos cuanto llevamos regado, 
+        # si el engine cae, al volver lo enviaremos
+        fichero=open(FICHERO_RIEGO, "w")
+        json.dump({"operador": operador, "ts": ts, "volumen": volumen, "duracion": round(time.time()-inicio)}, fichero)
+        fichero.close()
         if pararRiego.wait(1):# si alguien activa parar riego en ese sec
             if estado=="KO":
                 motivo="FUGA"
@@ -209,8 +219,13 @@ def regar(tiempo,operador,ts):
     valvula="CERRADA"
     print("Electroválvula cerrada")
 
-    resumen={"motivo":motivo, "duracion":round(time.time()-inicio), "volumen":volumen}
+    resumen={"motivo":motivo, "duracion":segundo+1, "volumen":volumen}
+    #segundos que ha regado 
+    
     enviarFinRiego(resumen,operador,ts)
+    #si el riego acaba bien, borramos el fichero de riego
+    if os.path.exists(FICHERO_RIEGO):
+        os.remove(FICHERO_RIEGO)
     
     regando=False
         
@@ -303,6 +318,17 @@ if  (len(sys.argv) == 5):
     
     #conectamos con Kafka: productor (caudal) y consumidor (órdenes)
     producer=Producer({"bootstrap.servers": f"{IP_K}:{PORT_K}"})
+    
+    # si al arrancar existe el fichero, el engine se cayo a mitad de un riego
+    if os.path.exists(FICHERO_RIEGO):
+        fichero=open(FICHERO_RIEGO)
+        pendiente=json.load(fichero)
+        fichero.close()
+        print(f"Recuperado riego interrumpido de {pendiente['operador']}: {round(pendiente['volumen'],2)} L. Enviando estado final a la Central")
+        #enviamos estado
+        enviarFinRiego({"motivo":"AVERIA", "duracion":pendiente["duracion"], "volumen":pendiente["volumen"]}, pendiente["operador"], pendiente["ts"])
+        os.remove(FICHERO_RIEGO)
+        
     consumer=Consumer({
         "bootstrap.servers": f"{IP_K}:{PORT_K}",
         "group.id": f"wm-engine-{ID_WS}-{int(time.time())}", 

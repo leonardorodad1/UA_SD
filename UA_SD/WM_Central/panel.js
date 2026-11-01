@@ -10,8 +10,7 @@ var TEXTO_ESTADO = {};
 for (var k = 0; k < ESTADOS.length; k++) { TEXTO_ESTADO[ESTADOS[k].clave] = ESTADOS[k].texto; }
 
 // motivo fin riego anteriorr
-var TEXTO_MOTIVO = { "TIEMPO": "time limit", "PARADAMANUAL": "stopped at the station", "FUGA": "leak", "BLOQUEO": "blocked by CENTRAL" };
-
+var TEXTO_MOTIVO = { "TIEMPO": "time limit", "PARADAMANUAL": "stopped at the station", "FUGA": "leak", "BLOQUEO": "blocked by CENTRAL", "MONITOR": "monitor down", "AVERIA": "engine failure" };
 var seleccionada = null;   // id de la WS en la que se ha hecho clic
 var ahora_central = 0;     
 var ultimas_estaciones = []; 
