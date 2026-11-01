@@ -40,7 +40,11 @@ def escucharRespuestas(consumer):
                 if respuesta.get("resultado")=="DISPONIBLES" and time.time()-respuesta["ts"]>TIMEOUT_RESPUESTA:
                     continue
                 
-                print(f"\n[CENTRAL] {respuesta['ws']}: {respuesta['resultado']} - {respuesta['motivo']}")
+                if respuesta["resultado"]=="DISPONIBLES":
+                    print(f"\n[CENTRAL] Estaciones disponibles:{respuesta['motivo']}")
+                else:
+                    print(f"\n[CENTRAL] {respuesta['ws']}: {respuesta['resultado']} - {respuesta['motivo']}")
+                
                 with condicion:
                     resultados[respuesta["ts"]]=respuesta["resultado"]
                     condicion.notify_all()
