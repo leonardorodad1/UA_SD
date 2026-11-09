@@ -265,9 +265,7 @@ def escucharOrdenes(consumer):
             if orden['ws']!=ID_WS:        
                 continue
                 #es para otra estacion
-            if time.time()-orden['ts']>TIEMPO_CADUCIDAD:
-                continue
-                #orden vieja
+            
             print(f"Orden recibida de la Central: {orden}")
             #iniciar riego
             if orden["orden"]=="START":
@@ -333,10 +331,14 @@ if  (len(sys.argv) == 5):
         "bootstrap.servers": f"{IP_K}:{PORT_K}",
         "group.id": f"wm-engine-{ID_WS}-{int(time.time())}", 
         #Cada engine recibe todas las órdenes y filtra las suyas
-        "auto.offset.reset": "earliest",
+        "auto.offset.reset": "latest",#solo ordenes nuevas, evitamos errores por distinta hora en los PCs
         "enable.auto.commit": False,
     })
     consumer.subscribe([TOPIC_ORDENES])
+    #esperamos a que kafka nos asigne el topic para no perder la primera orden
+    limite=time.time()+15
+    while not consumer.assignment() and time.time()<limite:
+        consumer.poll(0.5)
     hilo_ordenes=threading.Thread(target=escucharOrdenes, args=(consumer,), daemon=True)
     hilo_ordenes.start()
     

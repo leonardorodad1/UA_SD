@@ -185,8 +185,8 @@ if len(sys.argv)==4 or len(sys.argv)==5:
     INICIO=time.time()
     producer = Producer({"bootstrap.servers": f"{IP_K}:{PORT_K}"})
 
-    #usamos un group id distinto por cada ejecucion
-    #asi sabremos cual es nuestra peticion
+        #group id fijo por operador
+        #si el FO se cierra, al volver recibe lo que le falto
     consumer = Consumer({
         "bootstrap.servers": f"{IP_K}:{PORT_K}",
         "group.id": f"wm-fo-{ID_OPERADOR}", #kafka recuerda por donde ibamos aunque el FO se cierre
@@ -198,6 +198,10 @@ if len(sys.argv)==4 or len(sys.argv)==5:
         
     })
     consumer.subscribe([TOPIC_RESPUESTAS])
+    #esperamos a que se asigne el topic
+    limite=time.time()+15
+    while not consumer.assignment() and time.time()<limite:
+        consumer.poll(0.5)
     hilo_respuestas=threading.Thread(target=escucharRespuestas, args=(consumer,), daemon=True)
     hilo_respuestas.start()
 
@@ -233,7 +237,6 @@ if len(sys.argv)==4 or len(sys.argv)==5:
             
         elif opcion == "2":
             nombre = input("Nombre del fichero: ")
-            #mirar si pongo caso de q se lea por argumento o no
             leerFichero(nombre)
         elif opcion == "3":
             verEstaciones()

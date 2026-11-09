@@ -25,7 +25,7 @@ MAX_MENSAJES = 50
 mensajes_panel = [] 
 ZONA_HORARIA = ZoneInfo("Europe/Madrid") 
 kafka_ok = False #true si el broker responde
-TIEMPO_CADUCIDAD_PETICION = 20 
+ultimaPeticion=0 #con esta variable controlo la ultima peticion
 
 def handle_client(conn, addr):
     
@@ -311,12 +311,14 @@ def procesarPeticion(consumer, producer, msg):
         if producer.flush(10)==0:
             consumer.commit(message=msg, asynchronous=False)
         return
-    if time.time()-peticion["ts"] > TIEMPO_CADUCIDAD_PETICION:
+    if msg.offset() < ultimaPeticion:        
         registrarMensaje(f"{operador} - petición de riego en {ws} caducada, se descarta")
         responderPeticion(producer, peticion, "DENEGADA", "peticion caducada")
         if producer.flush(10)==0:
             consumer.commit(message=msg, asynchronous=False)
         return
+    #en el if hemos comprobado que la peticion no esta caducada
+    
     print(f"Peticion de {operador} para {ws}")
     responderPeticion(producer,peticion,"RECIBIDA","Peticion recibida, comprobando estado")
  
@@ -381,7 +383,14 @@ def procesarCaudal(consumer, producer,msg):
     
     if producer.flush(10)==0:
         consumer.commit(message=msg,asynchronous=False)
-            
+
+#apuntamos el ultimo numero que hay en la fila
+def asignadoPeticiones(consumer, particiones):
+    global ultimaPeticion
+    primero, ultimo = consumer.get_watermark_offsets(particiones[0])
+    #kafka nos da la ultima peticion 
+    ultimaPeticion = ultimo
+
 def escucharPeticiones():
     while True:
         consumer = None
@@ -394,7 +403,7 @@ def escucharPeticiones():
                 "session.timeout.ms": 10000, #kafka da por caida la central en 10 seg en vez de 45
             })
             producer=Producer({"bootstrap.servers":f"{IP_KAFKA}:{PORT_KAFKA}"})
-            consumer.subscribe([TOPIC_PETICIONES])
+            consumer.subscribe([TOPIC_PETICIONES], on_assign=asignadoPeticiones)# hacemos que kafka nos diga la ultima
             print(f"Escuchando el topic {TOPIC_PETICIONES}...")
             
             while True:
