@@ -214,7 +214,8 @@ function pintarDetalle(estaciones) {
     if (ws.id == seleccionada) {
       var regando = ws.estado == "WATERING";
       var progreso = progresoRiego(ws);
-      var porcentaje = progreso ? Math.round(progreso.lleva * 100 / progreso.total) : 0;
+      var sin_dato = regando && !progreso;
+      var porcentaje = progreso ? Math.round(progreso.lleva * 100 / progreso.total) : (sin_dato ? 30 : 0);
       var desplazamiento = LONGITUD_ANILLO * (1 - porcentaje / 100);
       var ultimo;
       if (ws.ultimo_fin) {
@@ -231,7 +232,7 @@ function pintarDetalle(estaciones) {
         + "<p class='lugar'>" + ws.ubicacion + "</p>"
         + "<span class='etiqueta " + ws.estado + "'>" + TEXTO_ESTADO[ws.estado] + "</span>"
         + "<div class='medidor'>"
-        + "<div class='anillo'><svg viewBox='0 0 104 104'><circle class='fondo' cx='52' cy='52' r='44' />"
+        + "<div class='anillo" + (sin_dato ? " girando" : "") + "'><svg viewBox='0 0 104 104'><circle class='fondo' cx='52' cy='52' r='44' />"
         + "<circle class='relleno' cx='52' cy='52' r='44' stroke-dasharray='" + LONGITUD_ANILLO + "' stroke-dashoffset='" + desplazamiento + "' /></svg>"
         + "<div class='centro'><b class='numero'>" + ws.caudal.toFixed(1) + "</b><small>L/min</small></div></div>"
         + "<div class='cajas'><div>Supplied<b class='numero'>" + ws.volumen.toFixed(2) + " L</b></div>"

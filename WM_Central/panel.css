@@ -543,11 +543,13 @@ input {
   color: var(--tinta);
   padding: 0 2px 0 8px;
   -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 .stp input::-webkit-outer-spin-button,
 .stp input::-webkit-inner-spin-button {
   -webkit-appearance: none;
+  appearance: none;
   margin: 0;
 }
 
@@ -1024,6 +1026,20 @@ td.mas:hover {
   transition: stroke-dashoffset .9s linear;
 }
 
+.anillo.girando svg {
+  animation: girar 1.2s linear infinite;
+  animation-delay: calc(var(--t, 0s) * -1);
+}
+
+@keyframes girar {
+  from {
+    transform: rotate(-90deg);
+  }
+  to {
+    transform: rotate(270deg);
+  }
+}
+
 .anillo .centro {
   position: absolute;
   inset: 0;
@@ -1294,6 +1310,7 @@ td.mas:hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .anillo.girando svg,
   .punto .circulo.WATERING,
   .etiqueta.WATERING,
   .punto .circulo.WATERING::before,
