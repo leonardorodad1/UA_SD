@@ -6,6 +6,10 @@
 #   ... -Pull        trae antes los ultimos cambios de GitHub
 #   ... -NoCache     reconstruye las imagenes desde cero
 #   ... -Parar       solo para y borra los contenedores de ese modo
+#   ... -Estaciones WS-03,WS-04      ademas de ws1/ws2 arranca esas estaciones (ya registradas)
+#   ... -Operarios OP-11=servicios1.txt,OP-12=servicios2.txt   ademas de fo1/fo2 lanza esos FO
+#                                                                (con =fichero leen ese fichero solos)
+# Al terminar abre una ventana por cada WS (monitor y engine) o por cada FO.
 #
 # Por que se construye servicio a servicio: ws1/ws2 (y fo1/fo2) comparten imagen y,
 # si se construyen a la vez con --build, Docker falla con "image already exists".
@@ -15,11 +19,16 @@ param(
     [switch]$Pull,
     [switch]$NoCache,
     [switch]$Parar,
+    [string]$Estaciones = "",
+    [string]$Operarios  = "",
     [string]$Kafka   = "turntable.proxy.rlwy.net:42333",
     [string]$Central = "centerbeam.proxy.rlwy.net:45361"
 )
 
 Set-Location $PSScriptRoot
+# con -File las listas llegan como un solo texto "A,B": las separamos nosotros
+$ListaWS = @($Estaciones.Split(",") | Where-Object { $_.Trim() -ne "" } | ForEach-Object { $_.Trim() })
+$ListaOP = @($Operarios.Split(",")  | Where-Object { $_.Trim() -ne "" } | ForEach-Object { $_.Trim() })
 $ProgressPreference = "SilentlyContinue"   # evita que la barra de progreso se mezcle con la salida
 
 if ($Modo -eq "ws") {
@@ -34,11 +43,29 @@ function Paso($texto) { Write-Host ""; Write-Host "== $texto ==" -ForegroundColo
 function Fallo($texto) { Write-Host "ERROR: $texto" -ForegroundColor Red; exit 1 }
 function Comprobar($texto) { if ($LASTEXITCODE -ne 0) { Fallo $texto } }
 
+# leemos las direcciones del .env para las instancias extra
+$e = @{}
+if (Test-Path ".env") {
+    Get-Content ".env" | ForEach-Object { if ($_ -match "^(\w+)=(.*)$") { $e[$Matches[1]] = $Matches[2].Trim() } }
+}
+
+# abre una ventana nueva de PowerShell con un titulo y un comando
+function Ventana($titulo, $comando) {
+    Start-Process powershell -WorkingDirectory $PSScriptRoot -ArgumentList "-NoExit", "-Command", "`$host.UI.RawUI.WindowTitle='$titulo'; $comando"
+}
+
+# borra los contenedores de este modo (los del compose y los extra lanzados con run)
+function Limpiar() {
+    docker compose -f $Compose down --remove-orphans
+    $prefijo = if ($Modo -eq "ws") { "ws" } else { "op" }
+    $viejos = docker ps -aq --filter "name=^$prefijo"
+    if ($viejos) { docker rm -f $viejos *> $null }
+}
+
 # ---------- modo parar ----------
 if ($Parar) {
     Paso "Parando contenedores ($Compose)"
-    docker compose -f $Compose down
-    Comprobar "docker compose down"
+    Limpiar
     exit 0
 }
 
@@ -92,8 +119,7 @@ git log -1 --oneline
 
 # ---------- 6. Limpiar ----------
 Paso "6. Parando lo anterior"
-docker compose -f $Compose down
-Comprobar "docker compose down"
+Limpiar
 
 # ---------- 7. Construir (de uno en uno) ----------
 Paso "7. Construyendo imagenes"
@@ -111,14 +137,56 @@ Paso "8. Arrancando"
 docker compose -f $Compose up -d
 Comprobar "docker compose up"
 
-Paso "9. Estado"
-Start-Sleep -Seconds 5
-docker compose -f $Compose ps -a
+# ---------- 9. Instancias extra ----------
+if ($Modo -eq "ws" -and $ListaWS.Count -gt 0) {
+    Paso "9. Estaciones extra"
+    foreach ($id in $ListaWS) {
+        $n = $id.ToLower().Replace("-", "")          # WS-03 -> ws03
+        docker compose -f $Compose run -d --name "$n-monitor" ws1-monitor 6001 $e.IP_CENTRAL $e.PUERTO_CENTRAL $id | Out-Null
+        # esperamos a que el monitor se autentique antes de lanzar su engine
+        $ok = $false
+        for ($i = 0; $i -lt 15; $i++) {
+            Start-Sleep -Seconds 1
+            if ((docker logs "$n-monitor" 2>&1 | Out-String) -match "STATUS#OK") { $ok = $true; break }
+        }
+        if ($ok) {
+            docker compose -f $Compose run -d --name "$n-engine" ws1-engine $e.IP_KAFKA $e.PUERTO_KAFKA "$n-monitor" 6001 | Out-Null
+            Write-Host "$id arrancada (monitor + engine)"
+        } else {
+            Write-Host "AVISO: $id no se ha autenticado (no esta registrada?). Registrala con .\nuevaWS.ps1 $id" -ForegroundColor Yellow
+        }
+    }
+}
+
+if ($Modo -eq "fo" -and $ListaOP.Count -gt 0) {
+    Paso "9. Operarios extra"
+    foreach ($op in $ListaOP) {
+        $partes = $op.Split("=")
+        $id = $partes[0]
+        $n = $id.ToLower().Replace("-", "")
+        $fichero = if ($partes.Count -gt 1) { "servicios/" + $partes[1] } else { "" }
+        Ventana $id "docker compose -f $Compose run --rm --name $n fo2 $($e.IP_KAFKA) $($e.PUERTO_KAFKA) $id $fichero"
+        Write-Host "$id lanzado en su ventana $fichero"
+    }
+}
+
+# ---------- 10. Una ventana por modulo ----------
+Paso "10. Abriendo una ventana por modulo"
+Start-Sleep -Seconds 3
+$prefijo = if ($Modo -eq "ws") { "^ws" } else { "^fo" }
+$nombres = docker ps --format "{{.Names}}" --filter "name=$prefijo" | Sort-Object
+foreach ($c in $nombres) {
+    # primero lo ultimo que ha escrito (el menu) y luego conectamos el teclado
+    Ventana $c "docker logs --tail 15 $c; docker attach $c"
+}
+
+Paso "11. Estado"
+docker ps --format "table {{.Names}}\t{{.Status}}"
 
 Write-Host ""
 Write-Host "Listo. Comandos utiles:" -ForegroundColor Green
 Write-Host "  Logs en directo : docker compose -f $Compose logs -f --tail 20 <servicio>"
-Write-Host "  Entrar (menu)   : docker compose -f $Compose attach <servicio>   (salir sin parar: Ctrl+P, Ctrl+Q)"
+Write-Host "  Entrar (menu)   : docker attach <contenedor>   (salir sin parar: Ctrl+P, Ctrl+Q)"
 Write-Host "  Simular crash   : docker compose -f $Compose kill <servicio>"
 Write-Host "  Recuperar       : docker compose -f $Compose up -d <servicio>"
 Write-Host "  Volver a abrir un FO cerrado con la opcion 3: docker compose -f $Compose start fo1"
