@@ -32,9 +32,6 @@ TOPIC_RESPUESTAS="wm.respuestas"
 TIEMPO_RESPUESTA=15 #segundos max esperando a que la central conteste una peticion manual
 respuesta_recibida=threading.Event() 
 ts_peticion_manual=None 
-TIEMPO_CADUCIDAD=20 # 20 segundos es lo maximo que espera 
-#una orden para ser usada, si no lo es en este tiempo 
-#se da la orden como caducada
 FICHERO_RIEGO="riego_en_curso.json" #aqui guardamos el riego que se hace
 #Si acaba bien, borramos el archivo.
 #Si se cae, el archivo se guarda.

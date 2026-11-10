@@ -50,7 +50,8 @@ def escucharRespuestas(consumer):
                     print(f"\n[CENTRAL] {respuesta['ws']}: {respuesta['resultado']} - {respuesta['motivo']}")
                 
                 with condicion:
-                    resultados[respuesta["ts"]]=respuesta["resultado"]
+                    #me guardo los estados por si la red va lenta
+                    resultados.setdefault(respuesta["ts"], set()).add(respuesta["resultado"])
                     condicion.notify_all()
             except (json.JSONDecodeError, KeyError, TypeError, UnicodeDecodeError):
                 continue #mensaje mal formado lo ignoramos
@@ -158,13 +159,13 @@ def leerFichero(nombre):
         partes=linea.split('#')
        
         if len(partes)!=2:
-            print("Linea no valida")
+            print(f"Linea no valida: '{linea}'. Formato correcto: WS-XX#segundos")
             continue #nos slatamos la linea
         ws=partes[0]
         try:
             tiempo=int(partes[1])
         except ValueError:
-            print(f"Linea no valida")
+            print(f"Linea no valida: '{linea}'. Formato correcto: WS-XX#segundos")
             continue # nos la saltamos si da error
         #solicitamos servicio 
         print(f"Servicio del fichero: {ws} durante {tiempo} segundos")
