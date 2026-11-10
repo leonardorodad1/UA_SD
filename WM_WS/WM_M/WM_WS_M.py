@@ -126,13 +126,7 @@ if  (len(sys.argv) == 5):
     servidor.bind(ADDR_ENGINE) # con esta ip podrá escuchar desde otros pc y docker
     servidor.listen()
     print(f"Esperando al Engine en el puerto {PORT_M}")            
-    
-    #esperamos a que se conecte un Engine, hasta que no haya engine no vigilamos nada
-    conn_engine, addr_engine= servidor.accept()
-    conn_engine.settimeout(1)
-    #enviamos id leida de terminal al engine para asignarsela
-    send(conn_engine, f"ID#{ID_WS}")
-    print(f"Engine conectado desde {addr_engine}")
+    conn_engine=None #el engine lo acepta el bucle de abajo cuando llegue
     
     #enviamos un mensaje cada sec para comprobar la salud
     #si no recibo respuesta enviamos a central mensaje de averia
@@ -156,7 +150,7 @@ if  (len(sys.argv) == 5):
                 conn_engine, addr_engine = servidor.accept()
                 conn_engine.settimeout(1)
                 send(conn_engine, f"ID#{ID_WS}")#volver a enviar la id en caso de que se reconecte
-                print(f"Engine reconectado desde {addr_engine}")
+                print(f"Engine conectado desde {addr_engine}")
             except (OSError, ValueError):
                 conn_engine=None
 
