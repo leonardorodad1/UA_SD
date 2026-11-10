@@ -248,6 +248,11 @@ def iniciarRiego(tiempo,operador, ts):
 
 def escucharOrdenes(consumer):
     global motivo_parada
+    #esperamos a que kafka nos asigne el topic para no perder la primera orden
+    limite=time.time()+15
+    while not consumer.assignment() and time.time()<limite:
+        consumer.poll(0.5)
+    
     while True:
         try:
             msg=consumer.poll(1.0)
@@ -335,10 +340,6 @@ if  (len(sys.argv) == 5):
         "enable.auto.commit": False,
     })
     consumer.subscribe([TOPIC_ORDENES])
-    #esperamos a que kafka nos asigne el topic para no perder la primera orden
-    limite=time.time()+15
-    while not consumer.assignment() and time.time()<limite:
-        consumer.poll(0.5)
     hilo_ordenes=threading.Thread(target=escucharOrdenes, args=(consumer,), daemon=True)
     hilo_ordenes.start()
     
@@ -367,8 +368,12 @@ if  (len(sys.argv) == 5):
             print("El monitor ha cerrado conexión. WS AVERIADA: no se admiten riegos")
             break               
         if msg=="CONEXION":
-            send(monitor,estado)
-    
+            try:
+                send(monitor,estado)
+            except OSError:
+                #el monitor se ha caido justo cuando le contestabamos
+                print("El monitor ha cerrado conexión. WS AVERIADA: no se admiten riegos")
+                break
     #si estaba regando, terminamos el riego de forma ordenada para que el FIN llegue a la central y al FO
     if regando:
         motivo_parada="MONITOR"
