@@ -1,5 +1,5 @@
 # Uso: .\nuevoFO.ps1 OP-ID            (con menu)
-#      .\nuevoF.ps1 OP-ID servicios1.txt   (lee el fichero solo)
+#      .\nuevoFO.ps1 OP-ID servicios.txt   (lee el fichero solo)
 
 param([Parameter(Mandatory=$true)][string]$Id, [string]$Fichero)
 Set-Location $PSScriptRoot

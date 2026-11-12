@@ -93,20 +93,23 @@ if (-not (Test-Path ".env")) { Fallo "No existe .env en esta carpeta." }
 Get-Content ".env"
 Write-Host "(revisa que las direcciones y los IDs son los de este PC)"
 
+
 # ---------- 4. Reloj ----------
-Paso "4. Reloj de Docker frente al de Windows"
-$dockerSeg = docker run --rm alpine date -u +%s
-if ($LASTEXITCODE -eq 0) {
-    $diff = [math]::Abs([DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - [long]$dockerSeg)
-    if ($diff -gt 10) {
-        Write-Host "AVISO: el reloj de Docker difiere $diff s. El Engine descartaria las ordenes." -ForegroundColor Yellow
-        Write-Host "Solucion: wsl --shutdown, reabrir Docker Desktop y volver a lanzar este script." -ForegroundColor Yellow
-    } else {
-        Write-Host "Reloj OK (diferencia $diff s)"
-    }
-} else {
-    Write-Host "No se pudo comprobar el reloj (continuo)" -ForegroundColor Yellow
-}
+#Paso "4. Reloj de Docker frente al de Windows"
+#$dockerSeg = docker run --rm alpine date -u +%s
+#if ($LASTEXITCODE -eq 0) {
+#    $diff = [math]::Abs([DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - [long]$dockerSeg)
+#    if ($diff -gt 10) {
+#        Write-Host "AVISO: el reloj de Docker difiere $diff s. El Engine descartaria las ordenes." -ForegroundColor Yellow
+#        Write-Host "Solucion: wsl --shutdown, reabrir Docker Desktop y volver a lanzar este script." -ForegroundColor Yellow
+#    } else {
+#        Write-Host "Reloj OK (diferencia $diff s)"
+#    }
+#} else {
+#    Write-Host "No se pudo comprobar el reloj (continuo)" -ForegroundColor Yellow
+#}
+#Este bloque lo dejamos en caso de que en el futuro
+#queramos que la hora vuelva a influir
 
 # ---------- 5. Codigo ----------
 if ($Pull) {
