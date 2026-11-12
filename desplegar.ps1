@@ -145,7 +145,7 @@ if ($Modo -eq "ws" -and $ListaWS.Count -gt 0) {
     Paso "9. Estaciones extra"
     foreach ($id in $ListaWS) {
         $n = $id.ToLower().Replace("-", "")          # WS-03 -> ws03
-        docker compose -f $Compose run -d --name "$n-monitor" ws1-monitor 6001 $e.IP_CENTRAL $e.PUERTO_CENTRAL $id | Out-Null
+        docker compose -f $Compose run -d --no-deps --name "$n-monitor" ws1-monitor 6001 $e.IP_CENTRAL $e.PUERTO_CENTRAL $id | Out-Null
         # esperamos a que el monitor se autentique antes de lanzar su engine
         $ok = $false
         for ($i = 0; $i -lt 15; $i++) {
@@ -153,7 +153,7 @@ if ($Modo -eq "ws" -and $ListaWS.Count -gt 0) {
             if ((docker logs "$n-monitor" 2>&1 | Out-String) -match "STATUS#OK") { $ok = $true; break }
         }
         if ($ok) {
-            docker compose -f $Compose run -d --name "$n-engine" ws1-engine $e.IP_KAFKA $e.PUERTO_KAFKA "$n-monitor" 6001 | Out-Null
+            docker compose -f $Compose run -d --no-deps --name "$n-engine" ws1-engine $e.IP_KAFKA $e.PUERTO_KAFKA "$n-monitor" 6001 | Out-Null
             Write-Host "$id arrancada (monitor + engine)"
         } else {
             Write-Host "AVISO: $id no se ha autenticado (no esta registrada?). Registrala con .\nuevaWS.ps1 $id" -ForegroundColor Yellow

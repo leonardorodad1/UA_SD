@@ -16,7 +16,7 @@ function Ventana($c) {
 docker rm -f "$n-monitor" "$n-engine" *> $null   # por si quedaba una vieja
 
 # 1. Monitor en su ventana
-docker compose -f docker-compose.ws.yml run -d --name "$n-monitor" ws1-monitor 6001 $e.IP_CENTRAL $e.PUERTO_CENTRAL $Id | Out-Null
+docker compose -f docker-compose.ws.yml run -d --no-deps --name "$n-monitor" ws1-monitor 6001 $e.IP_CENTRAL $e.PUERTO_CENTRAL $Id | Out-Null
 Start-Sleep -Seconds 2
 Ventana "$n-monitor"
 Write-Host "Si la ventana $n-monitor pregunta si quieres registrarla: Y, Enter, ubicacion, Enter" -ForegroundColor Yellow
@@ -30,7 +30,7 @@ for ($i = 0; $i -lt 60; $i++) {
 if (-not $ok) { Write-Host "ERROR: $Id no se ha autenticado. Mira la ventana $n-monitor" -ForegroundColor Red; exit 1 }
 
 # 3. Engine en su ventana, conectado a SU monitor
-docker compose -f docker-compose.ws.yml run -d --name "$n-engine" ws1-engine $e.IP_KAFKA $e.PUERTO_KAFKA "$n-monitor" 6001 | Out-Null
+docker compose -f docker-compose.ws.yml run -d --no-deps --name "$n-engine" ws1-engine $e.IP_KAFKA $e.PUERTO_KAFKA "$n-monitor" 6001 | Out-Null
 Start-Sleep -Seconds 2
 Ventana "$n-engine"
 Write-Host "Listo: $Id (monitor + engine, cada uno en su ventana)" -ForegroundColor Green
