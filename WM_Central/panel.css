@@ -143,6 +143,23 @@ input {
   transform: translateY(-1px);
 }
 
+.estado.latiendo .muestra {
+  animation: palpito 1.2s ease-in-out infinite;
+  animation-delay: calc(var(--t, 0s) * -1);
+}
+
+@keyframes palpito {
+  0%,
+  100% {
+    opacity: 1;
+    width: 6px;
+  }
+  50% {
+    opacity: .3;
+    width: 10px;
+  }
+}
+
 .estado .muestra {
   position: absolute;
   left: 0;
@@ -1310,6 +1327,7 @@ td.mas:hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .estado.latiendo .muestra,
   .anillo.girando svg,
   .punto .circulo.WATERING,
   .etiqueta.WATERING,

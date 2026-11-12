@@ -133,8 +133,12 @@ function pintarResumen(estaciones) {
   var html = "";
   for (var j = 0; j < ESTADOS.length; j++) {
     var clave = ESTADOS[j].clave;
-    var clase = filtro_estado == "" ? "" : (filtro_estado == clave ? " filtrada" : " apagada");
-    html += "<div class='estado" + clase + "' onclick=\"alternarEstado('" + clave + "')\" title='Click to filter by this status'>"
+     var clase = filtro_estado == "" ? "" : (filtro_estado == clave ? " filtrada" : " apagada");
+     var latido = "";
+     if (clave == "WATERING") {
+       latido = " latiendo' style='--t:" + ((Date.now() / 1000) % 1.2).toFixed(2) + "s";
+     }
+     html += "<div class='estado" + clase + latido + "' onclick=\"alternarEstado('" + clave + "')\" title='Click to filter by this status'>"
       + "<span class='muestra " + clave + "'></span>"
       + "<span class='cuenta numero'>" + cuenta[clave] + "</span>"
       + "<span class='nombre'>" + ESTADOS[j].texto + "</span></div>";
