@@ -83,12 +83,14 @@ if  (len(sys.argv) == 5):
     if len(partes)==3 and partes[0] == "STATUS" and partes[1]=="ERROR":
         opcion=""
         while opcion.upper()!="Y" and opcion.upper()!="N":
-            opcion=input(f"La estacion {ID_WS} no está registrada. ¿Quieres registrarla? (Y/N): ")
+            print(f"La estacion {ID_WS} no está registrada. ¿Quieres registrarla? (Y/N):", flush=True)
+            opcion=input()        
         
         if opcion.upper()=="N":
             sys.exit(0)# se ha salido con exito
         
-        ubicacion=input("Ubicación: ")
+        print("Ubicación:", flush=True)
+        ubicacion=input()
         if ubicacion == "":
             print("Ubicación no válida")
             sys.exit(1)#salida por fallo
