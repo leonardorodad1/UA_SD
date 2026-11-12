@@ -239,6 +239,7 @@ def cargarEstaciones():
     for estacion in listaestaciones:
         
         print(f"Id: {estacion[0]} Ubicacion: {estacion[1]} Estado: {estacion[2]} Caudal: {estacion[3]} L/min Volumen: {estacion[4]} L Operador: {estacion[5]}")    
+        registrarMensaje(f"{estacion[0]} - registrada en {estacion[1]}, DISCONNECTED hasta que conecte")
 
 #Devolvemos el resultado de la peticion del FO dependiendo del estado de la estacion
 #Autorizada si estacion dispo
